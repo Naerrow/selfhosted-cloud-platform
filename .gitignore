@@ -1,0 +1,26 @@
+# Internal-only planning/specification material.
+# Keep public traceability docs tracked; put raw/private specs in these paths.
+docs/private/
+docs/internal/
+docs/00-overview/requirements.raw.md
+docs/00-overview/requirements.private.md
+docs/00-overview/original-requirements.md
+*.private.md
+*.internal.md
+
+# Internal-only files (not published; do not link from tracked docs).
+CLAUDE.md
+docs/00-overview/requirements.md
+
+# OS·editor·tool artifacts.
+.DS_Store
+Thumbs.db
+.claude/
+
+# Secrets and credentials — never commit.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.crt
