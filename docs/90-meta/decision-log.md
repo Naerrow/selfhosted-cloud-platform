@@ -30,4 +30,34 @@ ADR로 격상할 가치가 있는 결정이라면 항목 끝에 `→ ADR-NNNN로
 
 ## 기록
 
-아직 기록 없음. 첫 공개 커밋 이후부터 기록한다.
+### 2026-06-03
+- 작업: Phase 0 Exit 게이트 산출물 중 **C4 Level 1–2 다이어그램 v0** 작성 (`docs/01-architecture/`: `c4-level1-context.md`, `c4-level2-containers.md`, `trust-boundaries.md`). ADR-0004 Proposed를 반영해 Level 2는 스택 중립으로 작성. 신뢰 경계 TB-1~TB-7 정의.
+- 결정: 클라이언트(웹/CLI)는 컨트롤 플레인 경계 밖에 둔다(TB-1과 일치). Mermaid C4 문법은 experimental이라 C4 문서(Level 1·2)에 한계 고지 + 본문 서술로 의미 완결. (trust-boundaries.md는 일반 flowchart라 해당 고지 불필요.)
+- 막힌 점: 없음. `threat-model.md`는 아직 미작성이라 forward link에 (예정) 표기.
+- 다음 작업: **STRIDE 위협 모델 v0** (`docs/03-security/threat-model.md`). `trust-boundaries.md`의 TB-1~TB-7 + 위협 시드가 입력. 이후 ADR-0004~0007 Accepted화 → CSAP·개인정보보호법 매핑 v0 순서.
+
+### 2026-06-03 (2)
+- 작업: Phase 0 Exit 게이트 산출물 중 **STRIDE 위협 모델 v0** 작성 (`docs/03-security/threat-model.md`). `trust-boundaries.md`의 TB-1~TB-7을 STRIDE로 전개(TH-01~26), STRIDE×경계 커버리지 매트릭스, risks 연결(R-006·R-010 치명적 포함).
+- 결정: v0는 위협 식별·통제 방향까지를 목표로 한다. ADR-0005/0006/0007이 Proposed라 해당 영역 통제는 "확정 예정"으로 표기하고 각 Accepted 시 갱신하도록 트리거 명시. 정량 스코어링·공격 트리는 Phase 2로 이연. TB-5는 outbound mock-only 자리표시.
+- 막힌 점: 없음. architecture 문서 3곳의 forward link (예정) 표기 해제.
+- 다음 작업: **ADR-0004~0007 Decision 확정 → Accepted** (Phase 1 진입 게이트). 0005는 위협 모델을 직접 참조(Open Q "노드 침해 시 노출 범위 — 위협 모델 v0와 연결")하므로 이제 입력이 준비됨. 0006/0007은 위협 모델을 직접 참조하지는 않으나, 방금 정리한 TB-6(빌링 무결성)·TB-7(시크릿) 위협 입력을 받아 확정 근거가 보강됨. (0006은 별도로 컴플라이언스 매핑의 보관 기간을 참조 — 매핑 v0와 병행 가능.) 이후 CSAP·개인정보보호법 매핑 v0.
+
+### 2026-06-06
+- 작업: **ADR-0004(백엔드 언어/프레임워크) 확정 → Accepted**. 사용자 결정 입력을 받아 Decision/Alternatives/Consequences/Open Questions를 채움.
+- 결정: **Go + Echo + sqlc** / **모듈러 모놀리스**(단일 바이너리, 내부 controlplane·metering·billing 모듈 경계) / **PostgreSQL 단일**(메타·미터링 파티셔닝·감사 별 스키마) / **작업 큐는 Phase 3 도입**(Phase 1은 동기+ticker). 사유: 단일 바이너리 배포가 미니 PC·1인 운영에 정합, sqlc 명시적 SQL로 멀티테넌시·빌링 무결성을 ORM 없이 강제, Go 동시성이 헬스체크·폴링·스케줄러에 적합. 라이선스(Go/Echo/sqlc)는 Apache-2.0(ADR-0011) 호환, AGPLv3는 Proxmox API 클라이언트로만 닿아 전염 없음.
+- 막힌 점: 없음. C4 Level 2를 스택 중립 → 본 결정 반영으로 갱신(v1), architecture README 주석 갱신.
+- 다음 작업: **ADR-0005(멀티테넌시 격리 모델) 확정**. 위협 모델 TB-2(TH-06~08, R-010 치명적)가 직접 입력. 이후 0006 → 0007 → CSAP·개인정보보호법 매핑 v0.
+
+### 2026-06-08
+- 작업: **ADR-0005(멀티테넌시 격리 모델) 확정 → Accepted**. 사용자 결정 입력으로 4층 격리 확정.
+- 결정: 메타데이터 = `tenant_id` + PostgreSQL RLS + 앱 쿼리 필터(sqlc) **이중 방어** + fail-closed(테넌트 컨텍스트 없으면 0행). 네트워크 = Phase 1 최소·**Phase 5 VXLAN/OVN 이연**. 스토리지 = 공유 풀 + 메타귀속 + 쿼터. 회귀 테스트(악의적 테넌트) = **Phase 2 CI 게이트 강제**. 사유: 이중 방어로 한 층 실수가 전체 노출로 가지 않게 함(R-010 치명적 완화), 단일 PostgreSQL+RLS가 ADR-0004와 정합.
+- 막힌 점: 없음. 네트워크·컴퓨팅 강한 격리를 Phase 5로 미루므로 그 전까지 다중 테넌트 네트워크 격리가 **약한 상태**임을 위협 모델·CSAP 매핑에 한계로 기록해야 함.
+- 막힌 점 후속: 위협 모델 TB-2(TH-06·07·11) 갱신 완료, §7 트리거 충족 처리. C4 L2(v1.1)·architecture README 갱신.
+- 다음 작업: **ADR-0006(빌링 무결성 메커니즘) 확정**. 위협 모델 TB-6(TH-16~20, R-006 치명적)이 입력. 해시 체인 vs 머클트리 선택 필요. 이후 0007 → CSAP·개인정보보호법 매핑 v0.
+
+### 2026-06-17
+- 작업: **ADR-0006(빌링 무결성 메커니즘) 확정 → Accepted**. 사용자 결정 입력(자료구조)으로 확정.
+- 결정: 무결성 자료구조 = **해시 체인(개별 미터링 레코드, `H(payload‖prev)`, 테넌트별) + 머클 루트(기간 청구서)** 조합. 사유: 해시 체인이 원천 데이터의 순서·변조 탐지를, 머클 루트가 청구서 단일 발행본만으로 외부 감사자의 부분 검증을 담당 — ADR-0008/Context의 "외부 감사 재계산" 요구 충족. append-only는 **DB 권한 미부여 + 트리거 이중 차단**으로 물리 강제(외부 WORM·timestamping 미도입 — ADR-0004 단일 PostgreSQL·1인 운영 부담과 정합). 정정 = 보정 레코드(`corrects_id`)만. idempotency = `f(tenant, period, 미터링 집합, 단가 버전)` 순수 함수, 재발행은 동일 해시 재확인. 빌링 감사 로그 = 별도 스키마+권한 분리 보관(+해시 체인).
+- 막힌 점: 없음. 단, 빌링 감사 로그 **법정 보관 기간**(전자상거래법 등)은 본 ADR이 단정하지 않고 CSAP·개인정보보호법 매핑에서 1차 출처(law.go.kr) 재확인 후 확정하도록 위임 — 매핑 작성 시 처리 필요.
+- 막힌 점 후속: 위협 모델 TB-6(TH-16·18·20) v0.2 갱신, §2 한계·§7 트리거 충족 처리. ADR 인덱스·ADR-0008(관련 표기·IN-SCOPE·Open Q)·C4 L2(v1.2)·01/05 README·ROADMAP·scope·risks R-006 동기화. 검토 중 **ADR-0005 확정(06-08) 때 누락됐던 동기화**(내부 요구사항 추적표의 관련 항목, risks R-010의 Proposed 잔존)도 함께 정정 — Source/상태 열은 현재 권위 상태를 가리키므로 본문 직접 정정(변경 이력·decision-log는 과거 기록이라 보존).
+- 다음 작업: **ADR-0007(시크릿 관리) 확정**. SOPS+age vs Vault dev 선택 필요. 입력 = 위협 모델 TB-7(TH-21~23). 이후 **CSAP·개인정보보호법 매핑 v0**(Phase 0 Exit 마지막 산출물) — ADR-0005 네트워크 격리 약화 한계 + ADR-0006 보관 기간을 입력으로 받음. 매핑 완료 시 Phase 0 Exit 게이트 충족 → Phase 1 진입.
