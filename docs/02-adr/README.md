@@ -17,7 +17,7 @@ ADR의 형식·라이프사이클·번호 부여 규칙은 [`0001-record-archite
 | [0004](./0004-backend-language-and-framework.md) | 백엔드 언어/프레임워크 선택 | Accepted |
 | [0005](./0005-multitenancy-isolation-model.md) | 멀티테넌시 격리 모델 | Accepted |
 | [0006](./0006-billing-integrity-mechanism.md) | 빌링 데이터 무결성 보장 방식 | Accepted |
-| [0007](./0007-secret-management.md) | 시크릿 관리 방식 | Proposed |
+| [0007](./0007-secret-management.md) | 시크릿 관리 방식 | Accepted |
 | [0008](./0008-phase3-billing-scope.md) | Phase 3 빌링 스코프를 종량제 단일 모델로 한정한다 | Accepted |
 | [0009](./0009-internal-only-design-docs.md) | 일부 설계 산출물을 내부 전용으로 분리한다 | Accepted |
 | [0010](./0010-research-doc-correction-exception.md) | 문서 정정과 설계 변경을 구분한다 | Accepted |

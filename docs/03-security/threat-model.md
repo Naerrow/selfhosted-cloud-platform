@@ -14,7 +14,7 @@
   - 리스크 레지스터: [`../90-meta/risks.md`](../90-meta/risks.md) (특히 R-004·R-006·R-009·R-010)
 - **방법**: 각 신뢰 경계(TB)와 핵심 자산을 STRIDE 6범주로 점검한다. 위협마다 ID(`TH-NN`), 대응 통제, 관련 ADR·리스크 매핑을 남긴다. (NFR ID 매핑은 차기 버전에서 추가 검토.)
 - **v0의 한계 (정직성 고지)**:
-  - ADR-0004(백엔드 스택)·**ADR-0005(멀티테넌시 격리)**·**ADR-0006(빌링 무결성)**은 **Accepted**. ADR-0007(시크릿 관리)는 아직 **Proposed**이므로 해당 영역(TB-7) 통제는 "확정 예정"으로 표기하며, Accepted 시 본 문서를 갱신한다.
+  - ADR-0004(백엔드 스택)·**ADR-0005(멀티테넌시 격리)**·**ADR-0006(빌링 무결성)**·**ADR-0007(시크릿 관리)**가 모두 **Accepted**다. TB-7 통제는 SOPS+age(기동 시 복호화→메모리, provider 인터페이스로 소비자 접근 표면 제한, 로그 redact 코드 강제)로 확정됐다. **남은 한계**: ADR-0007은 (1) 시크릿 접근 단위 감사가 약하고(파일 복호화 단위), (2) 소비자 분리가 단일 프로세스 내 코드 규율이라 강한 격리가 아님(Phase 4+ 모듈 분리 재검토)을 명시했다. TB-4(OIDC)는 Phase 2 진입 시 활성된다.
   - v0는 **위협 식별과 통제 방향**까지를 목표로 한다. 정량 리스크 스코어링(DREAD 등)·공격 트리 상세화는 Phase 2(IAM·멀티테넌시) 진입 시 심화한다.
   - 본 문서는 외부 공개 추적 문서다 ([ADR-0009](../02-adr/0009-internal-only-design-docs.md)의 **내부 전용 산출물** 대상은 아님 — 즉 공개된다). 따라서 ADR-0009의 공개 문서 규칙(내부 전용 파일명·지침 직접 인용 금지)은 본 문서에도 적용되며, 통제 인용은 ADR·vision·scope 기준으로 한다.
 
@@ -71,7 +71,7 @@
 
 | ID | STRIDE | 위협 | 대응 통제 (v0 방향) |
 |---|---|---|---|
-| TH-09 | S/E | Proxmox API Token 유출 시 노드 직접 조작 | 토큰을 시크릿 저장소에서만 조달(TB-7), 토큰별 권한 최소화, 회전(ADR-0007 확정 예정) |
+| TH-09 | S/E | Proxmox API Token 유출 시 노드 직접 조작 | 토큰을 시크릿 저장소(SOPS+age)에서만 조달(TB-7), 토큰별 권한 분리·**만료일** 부여, 유출 시 사용자 비활성화 없이 **token만 폐기·재발급**([ADR-0007](../02-adr/0007-secret-management.md)) |
 | TH-10 | T | 어댑터를 우회한 비즈니스 로직의 직접 Proxmox 호출 | **Proxmox 호출은 단일 어댑터 계층으로만** (REST/Token 근거 [ADR-0002](../02-adr/0002-use-proxmox-as-hypervisor.md), 단일 어댑터 경계는 [`../01-architecture/c4-level2-containers.md`](../01-architecture/c4-level2-containers.md)·[`../01-architecture/trust-boundaries.md`](../01-architecture/trust-boundaries.md) TB-3). 경로 외 호출 금지를 코드 리뷰·테스트로 강제 |
 | TH-11 | I | 침해된 노드가 그 위 테넌트 자원·데이터를 노출 | 메타데이터 격리는 ADR-0005로 확정(tenant_id+RLS); 노드 레벨 컴퓨팅·네트워크 격리(사이드채널 포함)는 Phase 5에서 심화. R-004 |
 | TH-12 | D | 노드 다운·응답 지연이 컨트롤 플레인으로 전파 | 어댑터 타임아웃·서킷 브레이커, 헬스체크로 격리 ([ADR-0003](../02-adr/0003-not-using-proxmox-clustering.md)). R-009 |
@@ -107,9 +107,9 @@
 
 | ID | STRIDE | 위협 | 대응 통제 (v0 방향) |
 |---|---|---|---|
-| TH-21 | I | 시크릿이 로그·에러·트레이스에 평문 노출 | 구조화 로깅 redact 정책, 시크릿 평문 저장·로깅 금지 (ADR-0007 확정 예정) |
-| TH-22 | I/E | 한 소비자(어댑터·API·빌링)의 redact 누락이 전 시크릿 노출로 확대 | 소비자별 최소 권한 시크릿 조달, 시크릿 종류별 분리(Proxmox Token / JWT 키 / OIDC / DB / PG) |
-| TH-23 | S | 탈취된 JWT 서명 키로 임의 토큰 위조 | 서명 키 격리·회전, 키 유출 시 폐기·재발급 런북 (Phase 1 최소 1건, ADR-0007) |
+| TH-21 | I | 시크릿이 로그·에러·트레이스에 평문 노출 | 시크릿 타입의 `String()`/`MarshalJSON`/로그 출력 **항상 redact**(마스킹 래퍼), 구조화 로깅 **allowlist 직렬화**, 시크릿을 에러 메시지에 포매팅 금지(코드 리뷰·linter 강제) ([ADR-0007](../02-adr/0007-secret-management.md)) |
+| TH-22 | I/E | 한 소비자(어댑터·API·빌링)의 redact 누락이 전 시크릿 노출로 확대 | 소비자별 **provider 인터페이스로 접근 표면 제한**(각 소비자는 자기 종류 시크릿만 — Proxmox Token / JWT 키 / OIDC / DB / PG). **단일 프로세스 모듈러 모놀리스이므로 강한 격리가 아닌 코드 규율**이며, 강한 격리는 모듈→서비스 분리(Phase 4+) 재검토. 기동 시 복호화→**프로세스 메모리에만** 적재(env 평문 흩뿌림 금지) (ADR-0007) |
+| TH-23 | S | 탈취된 JWT 서명 키로 임의 토큰 위조 | 서명 키 격리, **회전 전제 설계**(Phase 1 단일 활성 키+폐기, Phase 2 **JWK 회전 kid 기반**), 키 유출 시 폐기·재발급 런북 (Phase 1 최소 1건, ADR-0007) |
 
 > TB-7 소비자는 **어댑터·API·빌링** 3개다 ([`../01-architecture/c4-level2-containers.md`](../01-architecture/c4-level2-containers.md), trust-boundaries TB-7). 시크릿 범위는 Proxmox API Token, DB 자격증명, JWT 서명 키, OIDC client secret, PG 어댑터 자격증명을 포함한다.
 
@@ -142,13 +142,13 @@
 | TB-2 (TH-06~08) | **R-010** 멀티테넌시 격리 실패 (치명적) |
 | TB-6 (TH-16~20) | **R-006** 빌링 무결성 결함 (치명적) |
 | TB-3 (TH-11·12) | **R-004** Proxmox API 호환성 변화, **R-009** 오케스트레이션 책임 폭증 |
-| TB-7 (TH-21~23) | 시크릿 관리 — ADR-0007 확정 시 R 항목 추가 검토 |
+| TB-7 (TH-21~23) | **R-011** 시크릿 유출·관리 (ADR-0007 Accepted, SOPS+age) |
 
 ## 7. 다음 갱신 트리거
 
 - ~~**ADR-0005 Accepted**: TB-2를 4층 격리로 분해.~~ ✅ 충족(2026-06-08). 네트워크·컴퓨팅 강한 격리는 Phase 5에서 심화 예정.
 - ~~**ADR-0006 Accepted**: TB-6에 무결성 자료구조·검증 절차 반영.~~ ✅ 충족(2026-06-17). 해시 체인 + 머클 루트 조합, append-only 물리 강제, 감사 로그 분리 보관 확정. 정량 스코어링·머클 증명 임베드 세부는 Phase 3.
-- **ADR-0007 Accepted**: TB-7 통제 구체화, 시크릿 유출 런북 연결.
+- ~~**ADR-0007 Accepted**: TB-7 통제 구체화, 시크릿 유출 런북 연결.~~ ✅ 충족(2026-06-23). SOPS+age, 기동 시 복호화→메모리, 소비자별 최소 권한, 로그 redact 코드 강제, Proxmox Token 만료·token-only 폐기, JWT 키 회전(Phase 2 JWK)로 확정. 접근 단위 감사 약함은 ADR-0007의 명시적 한계(강한 감사 요구 시 Vault류 신규 ADR 트리거). 시크릿 유출 런북은 Phase 1 최소 1건 작성 과제.
 - **Phase 2 진입**: TB-4(OIDC) 활성, 정량 스코어링·공격 트리 심화, 테넌트 격리 회귀 테스트(악의적 테넌트 시뮬레이션).
 - **Phase 3 진입**: TB-5 실 PG 연동 시 TH-15 본격 전개.
 - risks.md 회귀 트리거(새 의존성·새 페르소나·새 기능·Phase 종료) 발생 시 동기 갱신.
@@ -159,3 +159,4 @@
 - v0 (수정): TH-10의 "단일 어댑터 계층" 근거에 C4 L2·trust-boundaries TB-3 보강(ADR-0002는 REST/Token 근거). TH-15 STRIDE 열을 `I (+범위 고지)`로 바꿔 커버리지 매트릭스(TB-5의 I=TH-15)와 일치시킴. 방법 설명의 "요구사항 매핑"을 "ADR·리스크 매핑"으로 정정(표에 FR/NFR 매핑 없음).
 - v0.1 (ADR-0005 Accepted 반영): TB-2(TH-06·07·11) 통제를 "확정 예정" → tenant_id+RLS+앱필터 이중 방어·fail-closed로 확정. §7 갱신 트리거의 ADR-0005 항목 충족 처리. 네트워크·컴퓨팅 강한 격리는 Phase 5 이연 한계로 명시. (ADR-0006/0007은 여전히 Proposed.)
 - v0.2 (ADR-0006 Accepted 반영): TB-6(TH-16·18·20) 통제를 "확정 예정" → 해시 체인(미터링) + 머클 루트(청구서) 조합, append-only 권한+트리거 이중 차단, 감사 로그 별도 스키마+권한으로 확정. §2 한계 고지·§7 갱신 트리거의 ADR-0006 항목 충족 처리. (ADR-0007은 여전히 Proposed.)
+- v0.3 (ADR-0007 Accepted 반영): TB-7(TH-21·22·23)·TB-3(TH-09) 통제를 "확정 예정" → SOPS+age, 기동 시 복호화→메모리, 소비자별 최소 권한 조달, 로그 redact 코드 강제(래퍼 타입+allowlist), Proxmox Token 만료·token-only 폐기, JWT 키 회전(Phase 2 JWK)으로 확정. §0 한계 고지 갱신(ADR-0004~0007 모두 Accepted, 남은 한계=접근 단위 감사 약함·TB-4 Phase 2), §6 리스크 연결을 R-011로 구체화, §7 ADR-0007 트리거 충족 처리. 이로써 Phase 0 위협 모델 입력 ADR(0005·0006·0007)이 모두 Accepted 반영됨.

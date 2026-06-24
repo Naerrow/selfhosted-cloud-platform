@@ -20,7 +20,16 @@ Thumbs.db
 # Secrets and credentials — never commit.
 .env
 .env.*
+*.env
 *.pem
 *.key
 *.p12
 *.crt
+
+# Encrypted runtime secrets (SOPS+age) — real values stay internal-only (ADR-0007).
+# Public repo carries only the empty-value template (secrets.example.yaml) and
+# the plaintext-free SOPS config (.sops.yaml); never the actual encrypted file.
+secrets.enc.yaml
+*.enc.yaml
+*.enc.json
+*.enc.env
